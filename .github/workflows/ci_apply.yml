@@ -1,11 +1,15 @@
 name: Terraform Apply (core)
 
 on:
+  workflow_dispatch:
+    inputs:
+      approve:
+        description: 'Approve apply?'
+        required: true
+        default: 'no'
   push:
     branches:
       - master
-    paths:
-      - "core/**"
 
 jobs:
   terraform-apply:
@@ -41,4 +45,5 @@ jobs:
         run: terraform plan -input=false -out=tfplan
 
       - name: Terraform Apply
+        if: ${{ github.event.inputs.approve == 'yes' }}
         run: terraform apply -input=false -auto-approve tfplan
