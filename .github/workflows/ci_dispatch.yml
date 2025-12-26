@@ -1,0 +1,44 @@
+name: Demo Dispatch Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: false
+        default: 'staging'
+      run_tests:
+        description: 'Run tests? (true/false)'
+        required: false
+        default: 'true'
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show dispatch inputs
+        run: |
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Run tests: ${{ github.event.inputs.run_tests }}"
+
+      - name: Setup Python (example)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run demo tests
+        if: ${{ github.event.inputs.run_tests == 'true' }}
+        run: |
+          echo "Running demo tests..."
+          python -c "print('tests ok')"
+
+      - name: Deploy placeholder
+        if: ${{ github.event.inputs.environment == 'production' }}
+        run: |
+          echo "Deploying to production (placeholder step)"
+
+      - name: Complete
+        run: echo "Demo dispatch workflow finished."
