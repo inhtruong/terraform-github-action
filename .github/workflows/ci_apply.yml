@@ -1,7 +1,6 @@
 name: Terraform Apply (core)
 
 on:
-  workflow_dispatch:   # chạy tay (recommended)
   push:
     branches:
       - master
