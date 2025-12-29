@@ -38,47 +38,57 @@ jobs:
       - uses: actions/checkout@v4
 
       # 🔎 Resolve working directory & tfvars (SAFE)
-      - name: Resolve terraform path (debug)
+      - name: Resolve terraform path (print only)
         id: resolve
         run: |
-          TFVARS="NONE"
+          SCOPE="${{ inputs.scope }}"
+          ENV="${{ inputs.target_env }}"
 
-          case "${{ inputs.scope }}" in
+          WORKDIR=""
+          TFVARS=""
+
+          case "$SCOPE" in
             account)
-              WORKDIR="account/envs/${{ inputs.target_env }}"
+              if [[ "$ENV" =~ ^(devel|prod)$ ]]; then
+                WORKDIR="account/envs/$ENV"
+                TFVARS="(none)"
+              else
+                echo "❌ ENV '$ENV' is NOT valid for scope 'account'"
+                exit 1
+              fi
               ;;
+              
             group)
-              if [[ "${{ inputs.target_env }}" =~ ^(red|dev|stg)$ ]]; then
+              if [[ "$ENV" =~ ^(red|dev|stg)$ ]]; then
                 WORKDIR="group/envs/devel"
-                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
-              elif [[ "${{ inputs.target_env }}" =~ ^(prd|stg)$ ]]; then
+                TFVARS="tfvars/$ENV.tfvars"
+              elif [[ "$ENV" =~ ^(prd)$ ]]; then
                 WORKDIR="group/envs/prod"
-                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+                TFVARS="tfvars/$ENV.tfvars"
               else
-                echo "❌ Invalid group env"
+                echo "❌ ENV '$ENV' is NOT valid for scope 'group'"
                 exit 1
               fi
               ;;
+              
             environment)
-              if [[ "${{ inputs.target_env }}" =~ ^(red02|dev01|stg02)$ ]]; then
+              if [[ "$ENV" =~ ^(red02|dev01|stg02)$ ]]; then
                 WORKDIR="environment/envs/devel"
-                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
-              elif [[ "${{ inputs.target_env }}" =~ ^(prd1|stg1)$ ]]; then
+                TFVARS="tfvars/$ENV.tfvars"
+              elif [[ "$ENV" =~ ^(prd1|stg1)$ ]]; then
                 WORKDIR="environment/envs/prod"
-                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+                TFVARS="tfvars/$ENV.tfvars"
               else
-                echo "❌ Invalid environment env"
+                echo "❌ ENV '$ENV' is NOT valid for scope 'environment'"
                 exit 1
               fi
               ;;
+              
             *)
               echo "❌ Unknown scope"
               exit 1
               ;;
           esac
-
-          echo "workdir=$WORKDIR" >> $GITHUB_OUTPUT
-          echo "tfvars=$TFVARS" >> $GITHUB_OUTPUT
 
       # 🖨️ Print result
       - name: Print resolved values
