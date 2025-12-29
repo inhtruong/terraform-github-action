@@ -3,3 +3,6 @@
 terraform.tfstate
 terraform.tfstate.backup
 tfstate_result
+
+core/**/.terraform
+core/**/.terraform.lock.hcl

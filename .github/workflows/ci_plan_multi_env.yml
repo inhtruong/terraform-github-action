@@ -4,15 +4,23 @@ on:
   push:
     branches:
       - master
+  pull_request:
 
 jobs:
   terraform-plan:
-    name: Terraform Plan
+    name: Terraform Plan - ${{ matrix.env }}
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        env:
+          - dev01
+          - dev02
+          - dev03
 
     defaults:
       run:
-        working-directory: core
+        working-directory: core/dev
 
     steps:
       - name: Checkout source
@@ -33,5 +41,8 @@ jobs:
       - name: Terraform Init
         run: terraform init -input=false
 
-      - name: Terraform Plan
-        run: terraform plan -input=false
+      - name: Terraform Plan (${{ matrix.env }})
+        run: |
+          terraform plan \
+            -input=false \
+            -var-file=tfvars/${{ matrix.env }}.tfvars
