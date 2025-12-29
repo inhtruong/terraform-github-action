@@ -1,9 +1,6 @@
 name: Plan Multi Env Dispatch
 
 on:
-  push:
-    branches:
-      - feat-wf-dispatch
   workflow_dispatch:
 
 jobs:
