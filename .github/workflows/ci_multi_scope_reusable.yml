@@ -53,10 +53,10 @@ jobs:
           echo "=============================="
 
       # 🔹 Call reusable workflow
-      - name: Terraform Plan
-        uses: ./.github/workflows/workflow-terraform-plan.yml
-        with:
-          workdir:  ${{ steps.resolve.outputs.workdir }}
-          env-id:   ${{ steps.resolve.outputs.env_id }}
-          runner:   ${{ steps.resolve.outputs.runner }}
-          is_prod:  ${{ steps.resolve.outputs.is_prod }}
+      # - name: Terraform Plan
+      #   uses: ./.github/workflows/workflow-terraform-plan.yml
+      #   with:
+      #     workdir:  ${{ steps.resolve.outputs.workdir }}
+      #     env-id:   ${{ steps.resolve.outputs.env_id }}
+      #     runner:   ${{ steps.resolve.outputs.runner }}
+      #     is_prod:  ${{ steps.resolve.outputs.is_prod }}
