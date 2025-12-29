@@ -1,8 +1,8 @@
-name: Terraform Plan (core)
+name: Plan Multi Environments 2
 
 on:
   push:
-    branches: [ master ]
+    branches: [ feat-wf-dispatch ]
   pull_request:
 
 jobs:
