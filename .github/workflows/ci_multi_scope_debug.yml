@@ -1,0 +1,91 @@
+name: Terraform Plan (multi-scope) - DEBUG
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Select scope level"
+        type: choice
+        required: true
+        options:
+          - account
+          - group
+          - environment
+
+      target_env:
+        description: "Select environment"
+        type: choice
+        required: true
+        options:
+          - devel
+          - prod
+          - red
+          - dev
+          - stg
+          - prd
+          - red02
+          - dev01
+          - stg02
+          - prd1
+          - stg1
+
+jobs:
+  debug-plan:
+    name: Debug - ${{ inputs.scope }} / ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 🔎 Resolve working directory & tfvars (SAFE)
+      - name: Resolve terraform path (debug)
+        id: resolve
+        run: |
+          TFVARS="NONE"
+
+          case "${{ inputs.scope }}" in
+            account)
+              WORKDIR="account/envs/${{ inputs.target_env }}"
+              ;;
+            group)
+              if [[ "${{ inputs.target_env }}" =~ ^(red|dev|stg)$ ]]; then
+                WORKDIR="group/envs/devel"
+                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              elif [[ "${{ inputs.target_env }}" =~ ^(prd|stg)$ ]]; then
+                WORKDIR="group/envs/prod"
+                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              else
+                echo "❌ Invalid group env"
+                exit 1
+              fi
+              ;;
+            environment)
+              if [[ "${{ inputs.target_env }}" =~ ^(red02|dev01|stg02)$ ]]; then
+                WORKDIR="environment/envs/devel"
+                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              elif [[ "${{ inputs.target_env }}" =~ ^(prd1|stg1)$ ]]; then
+                WORKDIR="environment/envs/prod"
+                TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              else
+                echo "❌ Invalid environment env"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "❌ Unknown scope"
+              exit 1
+              ;;
+          esac
+
+          echo "workdir=$WORKDIR" >> $GITHUB_OUTPUT
+          echo "tfvars=$TFVARS" >> $GITHUB_OUTPUT
+
+      # 🖨️ Print result
+      - name: Print resolved values
+        run: |
+          echo "================================="
+          echo "Scope      : ${{ inputs.scope }}"
+          echo "Target Env : ${{ inputs.target_env }}"
+          echo "Workdir    : ${{ steps.resolve.outputs.workdir }}"
+          echo "TFVARS     : ${{ steps.resolve.outputs.tfvars }}"
+          echo "================================="

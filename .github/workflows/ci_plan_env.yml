@@ -1,0 +1,99 @@
+name: Terraform Plan (multi-scope)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Select scope level"
+        type: choice
+        required: true
+        options:
+          - account
+          - group
+          - environment
+
+      target_env:
+        description: "Select environment"
+        type: choice
+        required: true
+        options:
+          - devel
+          - prod
+          - red
+          - dev
+          - stg
+          - prd
+          - red02
+          - dev01
+          - stg02
+          - prd1
+          - stg1
+
+jobs:
+  terraform-plan:
+    name: Plan - ${{ inputs.scope }} / ${{ inputs.target_env }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-1
+
+      # 🔎 Resolve working directory & tfvars
+      - name: Resolve terraform path
+        id: resolve
+        run: |
+          case "${{ inputs.scope }}" in
+            account)
+              WORKDIR="account/envs/${{ inputs.target_env }}"
+              TFVARS="terraform.tfvars"
+              ;;
+            group)
+              if [[ "${{ inputs.target_env }}" =~ ^(red|dev|stg)$ ]]; then
+                WORKDIR="group/envs/devel"
+              elif [[ "${{ inputs.target_env }}" =~ ^(prd|stg)$ ]]; then
+                WORKDIR="group/envs/prod"
+              else
+                echo "Invalid group env"
+                exit 1
+              fi
+              TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              ;;
+            environment)
+              if [[ "${{ inputs.target_env }}" =~ ^(red02|dev01|stg02)$ ]]; then
+                WORKDIR="environment/envs/devel"
+              elif [[ "${{ inputs.target_env }}" =~ ^(prd1|stg1)$ ]]; then
+                WORKDIR="environment/envs/prod"
+              else
+                echo "Invalid environment env"
+                exit 1
+              fi
+              TFVARS="tfvars/${{ inputs.target_env }}.tfvars"
+              ;;
+            *)
+              echo "Unknown scope"
+              exit 1
+              ;;
+          esac
+
+          echo "workdir=$WORKDIR" >> $GITHUB_OUTPUT
+          echo "tfvars=$TFVARS" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: ${{ steps.resolve.outputs.workdir }}
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -input=false \
+            -var-file=${{ steps.resolve.outputs.tfvars }}
+        working-directory: ${{ steps.resolve.outputs.workdir }}
