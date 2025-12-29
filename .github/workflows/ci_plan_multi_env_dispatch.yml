@@ -1,4 +1,4 @@
-name: Plan Multi Env Dispatch
+name: Terraform Plan (with dispatch no param)
 
 on:
   workflow_dispatch:
