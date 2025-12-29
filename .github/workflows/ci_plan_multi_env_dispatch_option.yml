@@ -1,4 +1,4 @@
-
+name: Terraform Plan (with dispatch option)
 
 on:
   workflow_dispatch:

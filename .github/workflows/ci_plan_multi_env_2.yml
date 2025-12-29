@@ -2,7 +2,7 @@ name: Plan Multi Environments 2
 
 on:
   push:
-    branches: [ feat-wf-dispatch ]
+    branches: [ main ]
   pull_request:
 
 jobs:
