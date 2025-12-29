@@ -1,19 +1,16 @@
-name: Terraform Plan Dispatcher
+name: Terraform Plan (Composite Resolve)
 
 on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Scope level"
         type: choice
         required: true
         options:
           - account
           - group
           - environment
-
       target_env:
-        description: "Target environment"
         type: choice
         required: true
         options:
@@ -30,149 +27,36 @@ on:
           - stg1
 
 jobs:
-  resolve:
-    name: Resolve Terraform Context
-    runs-on: ubuntu-latest
-    outputs:
-      workdir: ${{ steps.map.outputs.workdir }}
-      env_id:  ${{ steps.map.outputs.env_id }}
-      runner:  ${{ steps.map.outputs.runner }}
-      is_prod: ${{ steps.map.outputs.is_prod }}
-
-    steps:
-      - name: Map scope + env
-        id: map
-        run: |
-          SCOPE="${{ inputs.scope }}"
-          ENV="${{ inputs.target_env }}"
-
-          WORKDIR=""
-          ENV_ID=""
-          RUNNER=""
-          IS_PROD="false"
-
-          case "$SCOPE:$ENV" in
-            # ======================
-            # ACCOUNT
-            # ======================
-            account:devel)
-              WORKDIR="account/envs/devel"
-              ENV_ID="devel"
-              RUNNER="devel"
-              ;;
-            account:prod)
-              WORKDIR="account/envs/prod"
-              ENV_ID="prod"
-              RUNNER="cicd-prd"
-              IS_PROD="true"
-              ;;
-
-            # ======================
-            # GROUP – DEVEL
-            # ======================
-            group:red)
-              WORKDIR="group/envs/devel"
-              ENV_ID="red"
-              RUNNER="devel"
-              ;;
-            group:dev)
-              WORKDIR="group/envs/devel"
-              ENV_ID="dev"
-              RUNNER="cicd-devel"
-              ;;
-            group:stg)
-              WORKDIR="group/envs/devel"
-              ENV_ID="stg"
-              RUNNER="cicd-devel"
-              ;;
-
-            # ======================
-            # GROUP – PROD
-            # ======================
-            group:prd)
-              WORKDIR="group/envs/prod"
-              ENV_ID="prd"
-              RUNNER="cicd-prd"
-              IS_PROD="true"
-              ;;
-            group:stg-prod|group:stg)
-              WORKDIR="group/envs/prod"
-              ENV_ID="stg"
-              RUNNER="cicd-prd"
-              IS_PROD="true"
-              ;;
-
-            # ======================
-            # ENVIRONMENT – DEVEL
-            # ======================
-            environment:red02)
-              WORKDIR="environment/envs/devel"
-              ENV_ID="red"
-              RUNNER="devel"
-              ;;
-            environment:dev01)
-              WORKDIR="environment/envs/devel"
-              ENV_ID="dev"
-              RUNNER="cicd-devel"
-              ;;
-            environment:stg02)
-              WORKDIR="environment/envs/devel"
-              ENV_ID="stg"
-              RUNNER="cicd-devel"
-              ;;
-
-            # ======================
-            # ENVIRONMENT – PROD
-            # ======================
-            environment:stg1)
-              WORKDIR="environment/envs/prod"
-              ENV_ID="stg1"
-              RUNNER="cicd-prd"
-              IS_PROD="true"
-              ;;
-            environment:prd1)
-              WORKDIR="environment/envs/prod"
-              ENV_ID="prd1"
-              RUNNER="cicd-prd"
-              IS_PROD="true"
-              ;;
-
-            *)
-              echo "❌ Invalid combination: $SCOPE / $ENV"
-              exit 1
-              ;;
-          esac
-
-          echo "workdir=$WORKDIR" >> $GITHUB_OUTPUT
-          echo "env_id=$ENV_ID"   >> $GITHUB_OUTPUT
-          echo "runner=$RUNNER"   >> $GITHUB_OUTPUT
-          echo "is_prod=$IS_PROD" >> $GITHUB_OUTPUT
-
-          echo "✅ workdir=$WORKDIR"
-          echo "✅ env-id=$ENV_ID"
-          echo "✅ runner=$RUNNER"
-          echo "✅ is_prod=$IS_PROD"
-
   terraform-plan:
     name: Terraform Plan
-    needs: resolve
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print resolved terraform context
+      - uses: actions/checkout@v4
+
+      # 🔹 Resolve env via composite action
+      - name: Resolve terraform context
+        id: resolve
+        uses: ./.github/actions/resolve-env
+        with:
+          scope: ${{ inputs.scope }}
+          target_env: ${{ inputs.target_env }}
+
+      # 🔹 Print resolved values (debug)
+      - name: Print resolved outputs
         run: |
-          echo "========== RESOLVED CONTEXT =========="
-          echo "Workdir  : ${{ needs.resolve.outputs.workdir }}"
-          echo "Env ID   : ${{ needs.resolve.outputs.env_id }}"
-          echo "Runner  : ${{ needs.resolve.outputs.runner }}"
-          echo "Is Prod : ${{ needs.resolve.outputs.is_prod }}"
-          echo "======================================"
+          echo "========== RESOLVED =========="
+          echo "Workdir : ${{ steps.resolve.outputs.workdir }}"
+          echo "Env ID  : ${{ steps.resolve.outputs.env_id }}"
+          echo "Runner  : ${{ steps.resolve.outputs.runner }}"
+          echo "Is Prod : ${{ steps.resolve.outputs.is_prod }}"
+          echo "=============================="
 
-      # - name: Call reusable workflow
-      #   uses: ./.github/workflows/workflow-terraform-plan.yml
-      #   with:
-      #     workdir: ${{ needs.resolve.outputs.workdir }}
-      #     env-id:  ${{ needs.resolve.outputs.env_id }}
-      #     runner:  ${{ needs.resolve.outputs.runner }}
-      #     is_prod: ${{ needs.resolve.outputs.is_prod }}
-
+      # 🔹 Call reusable workflow
+      - name: Terraform Plan
+        uses: ./.github/workflows/workflow-terraform-plan.yml
+        with:
+          workdir:  ${{ steps.resolve.outputs.workdir }}
+          env-id:   ${{ steps.resolve.outputs.env_id }}
+          runner:   ${{ steps.resolve.outputs.runner }}
+          is_prod:  ${{ steps.resolve.outputs.is_prod }}

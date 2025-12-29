@@ -1,0 +1,134 @@
+name: Resolve Terraform Environment
+description: Resolve workdir, env-id, runner, is_prod from scope + target_env
+
+inputs:
+  scope:
+    required: true
+  target_env:
+    required: true
+
+outputs:
+  workdir:
+    value: ${{ steps.resolve.outputs.workdir }}
+  env_id:
+    value: ${{ steps.resolve.outputs.env_id }}
+  runner:
+    value: ${{ steps.resolve.outputs.runner }}
+  is_prod:
+    value: ${{ steps.resolve.outputs.is_prod }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      run: |
+        SCOPE="${{ inputs.scope }}"
+        ENV="${{ inputs.target_env }}"
+
+        WORKDIR=""
+        ENV_ID=""
+        RUNNER=""
+        IS_PROD="false"
+
+        case "$SCOPE:$ENV" in
+          # ======================
+          # ACCOUNT
+          # ======================
+          account:devel)
+            WORKDIR="account/envs/devel"
+            ENV_ID="devel"
+            RUNNER="devel"
+            ;;
+          account:prod)
+            WORKDIR="account/envs/prod"
+            ENV_ID="prod"
+            RUNNER="cicd-prd"
+            IS_PROD="true"
+            ;;
+
+          # ======================
+          # GROUP – DEVEL
+          # ======================
+          group:red)
+            WORKDIR="group/envs/devel"
+            ENV_ID="red"
+            RUNNER="devel"
+            ;;
+          group:dev)
+            WORKDIR="group/envs/devel"
+            ENV_ID="dev"
+            RUNNER="cicd-devel"
+            ;;
+          group:stg)
+            WORKDIR="group/envs/devel"
+            ENV_ID="stg"
+            RUNNER="cicd-devel"
+            ;;
+
+          # ======================
+          # GROUP – PROD
+          # ======================
+          group:prd)
+            WORKDIR="group/envs/prod"
+            ENV_ID="prd"
+            RUNNER="cicd-prd"
+            IS_PROD="true"
+            ;;
+          group:stg-prod|group:stg)
+            WORKDIR="group/envs/prod"
+            ENV_ID="stg"
+            RUNNER="cicd-prd"
+            IS_PROD="true"
+            ;;
+
+          # ======================
+          # ENVIRONMENT – DEVEL
+          # ======================
+          environment:red02)
+            WORKDIR="environment/envs/devel"
+            ENV_ID="red"
+            RUNNER="devel"
+            ;;
+          environment:dev01)
+            WORKDIR="environment/envs/devel"
+            ENV_ID="dev"
+            RUNNER="cicd-devel"
+            ;;
+          environment:stg02)
+            WORKDIR="environment/envs/devel"
+            ENV_ID="stg"
+            RUNNER="cicd-devel"
+            ;;
+
+          # ======================
+          # ENVIRONMENT – PROD
+          # ======================
+          environment:stg1)
+            WORKDIR="environment/envs/prod"
+            ENV_ID="stg1"
+            RUNNER="cicd-prd"
+            IS_PROD="true"
+            ;;
+          environment:prd1)
+            WORKDIR="environment/envs/prod"
+            ENV_ID="prd1"
+            RUNNER="cicd-prd"
+            IS_PROD="true"
+            ;;
+
+          *)
+            echo "❌ Invalid combination: $SCOPE / $ENV"
+            exit 1
+            ;;
+        esac
+
+        echo "workdir=$WORKDIR" >> $GITHUB_OUTPUT
+        echo "env_id=$ENV_ID"   >> $GITHUB_OUTPUT
+        echo "runner=$RUNNER"   >> $GITHUB_OUTPUT
+        echo "is_prod=$IS_PROD" >> $GITHUB_OUTPUT
+
+        echo "✅ workdir=$WORKDIR"
+        echo "✅ env-id=$ENV_ID"
+        echo "✅ runner=$RUNNER"
+        echo "✅ is_prod=$IS_PROD"
