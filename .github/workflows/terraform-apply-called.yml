@@ -1,62 +1,33 @@
-name: Terraform Apply (Weekly - Friday 5AM VN)
+name: Terraform Apply (Simple)
 
 on:
   workflow_call:
     inputs:
       apply_status:
-        description: "Status from terraform apply step"
         required: true
         type: string
 
 jobs:
-  terraform-apply:
-    name: Terraform Apply (Mock)
+  demo:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: core
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-1
-
-      - name: Terraform Init
-        run: terraform init -input=false
-
-      # STEP APPLY (MOCK) – có OUTPUT
-      - name: Terraform Apply (Mock)
-        id: apply
+      # STEP 1: dùng input, tạo output
+      - name: Step 1 - Use input & set output
+        id: step1
         run: |
-          echo "Running terraform apply (mock)..."
-          APPLY_TIME= $(date -u)
-          APPLY_STATUS= ${{ inputs.apply_status }}
+          echo "Input status: ${{ inputs.apply_status }}"
 
-          echo "apply_time=$APPLY_TIME" >> $GITHUB_OUTPUT
-          echo "apply_status=$APPLY_STATUS" >> $GITHUB_OUTPUT
+          echo "result_status=${{ inputs.apply_status }}" >> $GITHUB_OUTPUT
 
-      # STEP REQUIRE – dùng output của step apply
-      - name: Requir
+      # STEP 2: dùng output của step 1
+      - name: Step 2 - Consume output
         run: |
-          echo "=== REQUIRE STEP ==="
-          echo "Apply status : ${{ steps.apply.outputs.apply_status }}"
-          echo "Apply time   : ${{ steps.apply.outputs.apply_time }}"
+          echo "Output from step 1: ${{ steps.step1.outputs.result_status }}"
 
-          if [ "${{ steps.apply.outputs.apply_status }}" != "success" ]; then
-            echo "Apply failed, stop pipeline"
+          if [ "${{ steps.step1.outputs.result_status }}" != "success" ]; then
+            echo "❌ Status not success, fail workflow"
             exit 1
           fi
 
-          echo "Apply OK, continue next actions..."
+          echo "✅ Status success, continue"
