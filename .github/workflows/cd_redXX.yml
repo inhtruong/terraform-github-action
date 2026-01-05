@@ -1,0 +1,23 @@
+name: Call Terraform Apply (Matrix)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call-apply:
+    name: Call apply for ${{ matrix.env }}
+    uses: ./.github/workflows/terraform-apply-called.yml
+
+    strategy:
+      fail-fast: false   # để red02, red03 fail không làm dừng red01
+      matrix:
+        include:
+          - env: red01
+            apply_status: success
+          - env: red02
+            apply_status: fail
+          - env: red03
+            apply_status: fail
+
+    with:
+      apply_status: ${{ matrix.apply_status }}
