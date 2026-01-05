@@ -1,17 +1,12 @@
 name: Terraform Apply (Weekly - Friday 5AM VN)
 
 on:
-  schedule:
-    # 22:00 UTC Thứ 5 = 05:00 sáng Thứ 6 (UTC+7)
-    - cron: "0 22 * * 4"
-  workflow_dispatch:
-
-    workflow_call:
-    inputs:
-      apply_status:
-        description: "Status from terraform apply step"
-        required: true
-        type: string
+  workflow_call:
+  inputs:
+    apply_status:
+      description: "Status from terraform apply step"
+      required: true
+      type: string
 
 jobs:
   terraform-apply:
