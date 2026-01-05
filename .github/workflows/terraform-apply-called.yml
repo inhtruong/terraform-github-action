@@ -2,11 +2,11 @@ name: Terraform Apply (Weekly - Friday 5AM VN)
 
 on:
   workflow_call:
-  inputs:
-    apply_status:
-      description: "Status from terraform apply step"
-      required: true
-      type: string
+    inputs:
+      apply_status:
+        description: "Status from terraform apply step"
+        required: true
+        type: string
 
 jobs:
   terraform-apply:
