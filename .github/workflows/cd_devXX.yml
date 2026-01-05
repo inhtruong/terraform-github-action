@@ -12,7 +12,7 @@ jobs:
         include:
           - env: dev01
             apply_status: fail
-          - env: red02
+          - env: dev02
             apply_status: success
     uses: ./.github/workflows/terraform-apply-called.yml
     with:
