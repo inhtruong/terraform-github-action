@@ -6,8 +6,8 @@ on:
 jobs:
   call-apply:
     name: Call apply for ${{ matrix.env }}
-    uses: ./.github/workflows/terraform-apply-called.yml
-
+    uses: ./.github/workflows/terraform-apply-called.yml@feat-multi-scope
+    
     strategy:
       fail-fast: false   # để red02, red03 fail không làm dừng red01
       matrix:
