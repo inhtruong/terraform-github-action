@@ -1,0 +1,48 @@
+name: Main Infrastructure CI
+
+on:
+  push:
+    branches:
+      - 'deploy/dev01'
+      - 'deploy/dev02'
+
+jobs:
+  # Job 1: Trích xuất Environment ID từ tên nhánh
+  prep-env:
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.get-env.outputs.ENV_ID }}
+    steps:
+      - name: Extract Branch Name
+        id: get-env
+        shell: bash
+        run: |
+          # GITHUB_REF_NAME sẽ có dạng 'deploy/dev01'
+          # Lệnh dưới đây lấy phần sau dấu '/' (ví dụ: dev01)
+          BRANCH_NAME="${{ github.ref_name }}"
+          ENV_ID=$(echo $BRANCH_NAME | cut -d'/' -f2)
+          echo "ENV_ID=$ENV_ID" >> $GITHUB_OUTPUT
+          echo "Đang chuẩn bị deploy cho môi trường: $ENV_ID"
+
+  # Job 2: Gọi workflow con (Reusable Workflow)
+  call-tf-plan:
+    needs: prep-env
+    uses: ./.github/workflows/tf-plan-reusable.yml
+    with:
+      env-id: ${{ needs.prep-env.outputs.env_name }}
+      status_plan: 'success' # Giả lập kết quả plan thành công
+
+  # Job 3: Xử lý dựa trên kết quả trả về (OK/NG)
+  check-result:
+    needs: [prep-env, call-tf-plan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Final Report
+        run: |
+          echo "Môi trường thực thi: ${{ needs.prep-env.outputs.env_name }}"
+          echo "Kết quả từ Plan: ${{ needs.call-tf-plan.outputs.plan-result }}"
+          
+      - name: Execution Logic
+        if: ${{ needs.call-tf-plan.outputs.plan-result == 'OK' }}
+        run: |
+          echo "Status là OK. Kích hoạt bước tiếp theo cho ${{ needs.prep-env.outputs.env_name }}..."

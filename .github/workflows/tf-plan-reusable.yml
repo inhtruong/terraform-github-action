@@ -1,0 +1,72 @@
+name: Terraform Plan Reusable
+
+on:
+  workflow_call:
+    inputs:
+      env-id:
+        description: 'ID của môi trường (dev/staging/prod)'
+        required: true
+        type: string
+    secrets:
+      # Truyền các secret cần thiết từ workflow cha
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+  terraform-plan:
+    name: TF Plan - ${{ inputs.env-id }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env-id }} # Tối ưu hóa việc sử dụng GitHub Environments
+    outputs:
+      outcome: ${{ steps.set-status.outputs.final_status }} # Map output của job với output của step
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0 # Thay đổi version phù hợp với dự án của bạn
+
+      - name: Check Status and Set Output
+        id: set-status
+        shell: bash
+        run: |
+          # Logic: Nếu status_plan là 'success' thì trả về OK, ngược lại là NG
+          if [ "${{ inputs.status_plan }}" == "success" ]; then
+            echo "final_status=OK" >> $GITHUB_OUTPUT
+            echo "Plan cho ${{ inputs.env-id }} thành công."
+          else
+            echo "final_status=NG" >> $GITHUB_OUTPUT
+            echo "Plan cho ${{ inputs.env-id }} thất bại."
+            # Nếu bạn muốn job này fail luôn khi là NG, có thể dùng exit 1
+            # exit 1 
+          fi
+
+      # - name: Terraform Init
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #   run: |
+      #     terraform init \
+      #       -backend-config="env/${{ inputs.env-id }}/backend.tfvars"
+
+      # - name: Terraform Plan
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #   run: |
+      #     terraform plan \
+      #       -var-file="env/${{ inputs.env-id }}/terraform.tfvars" \
+      #       -out=tfplan-${{ inputs.env-id }}
+
+      # # (Tùy chọn) Lưu file plan lại để workflow apply có thể sử dụng
+      # - name: Upload Plan Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: tfplan-${{ inputs.env-id }}
+      #     path: tfplan-${{ inputs.env-id }}
+      #     retention-days: 1
