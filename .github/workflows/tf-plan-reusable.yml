@@ -4,15 +4,14 @@ on:
   workflow_call:
     inputs:
       env-id:
-        description: 'ID của môi trường (dev/staging/prod)'
+        description: 'ID của môi trường'
         required: true
         type: string
-    secrets:
-      # Truyền các secret cần thiết từ workflow cha
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
+      status_plan:
+        description: 'Trạng thái giả lập của plan (success/fail)'
+        required: false
+        default: 'success'
+        type: string
 
 jobs:
   terraform-plan:
