@@ -18,6 +18,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PAT }}
           # Lấy toàn bộ lịch sử commit để đảm bảo việc push -f không lỗi
           fetch-depth: 0
           # Luôn lấy source từ nhánh develop làm gốc
