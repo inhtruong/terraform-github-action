@@ -4,6 +4,8 @@ on:
   schedule:
     # Cấu hình chạy mỗi 5 phút: phút (*/5), giờ (*), ngày (*), tháng (*), thứ (*)
     - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # Cho phép bạn nhấn nút "Run workflow" từ UI của GitHub
 
 jobs:
   force-push:
