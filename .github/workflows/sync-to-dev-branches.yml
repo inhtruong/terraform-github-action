@@ -2,8 +2,8 @@ name: Manual Sync Develop to Dev Branches
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Chạy mỗi 5 phút như bạn yêu cầu ở bước trước
-  workflow_dispatch: # Giữ lại để chạy thủ công khi cần
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   force-push:
@@ -18,14 +18,15 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          # SỬ DỤNG PAT TẠI ĐÂY
-          token: ${{ secrets.PAT }} 
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
           ref: develop
+          # QUAN TRỌNG: Buộc Git dùng PAT này cho các lệnh sau
+          persist-credentials: true 
 
       - name: Force Push to Target Branch
         run: |
-          echo "Đang thực hiện force push từ develop sang ${{ matrix.target_branch }} bằng PAT..."
-          # Đã checkout ref: develop nên local branch là develop. 
-          # Ta dùng lệnh push trực tiếp từ local branch lên remote branch đích.
+          echo "Đang thực hiện force push sang ${{ matrix.target_branch }}..."
+          # Đảm bảo remote URL đã bao gồm Token để tránh hỏi username/pass
+          # Checkout đã làm việc này thông qua persist-credentials: true
           git push origin develop:${{ matrix.target_branch }} --force
