@@ -1,36 +1,31 @@
 name: Manual Sync Develop to Dev Branches
 
 on:
-  workflow_dispatch:
-    # Cho phép bạn nhấn nút "Run workflow" từ UI của GitHub
+  schedule:
+    - cron: '*/5 * * * *' # Chạy mỗi 5 phút như bạn yêu cầu ở bước trước
+  workflow_dispatch: # Giữ lại để chạy thủ công khi cần
 
 jobs:
   force-push:
     name: Push to ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
     strategy:
-      # Chạy song song cho tất cả các nhánh trong list
       matrix:
         target_branch: ['deploy/dev01', 'deploy/dev02']
-      fail-fast: false # Nếu 1 nhánh lỗi, các nhánh khác vẫn tiếp tục
+      fail-fast: false
 
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT }}
-          # Lấy toàn bộ lịch sử commit để đảm bảo việc push -f không lỗi
+          # SỬ DỤNG PAT TẠI ĐÂY
+          token: ${{ secrets.PAT }} 
           fetch-depth: 0
-          # Luôn lấy source từ nhánh develop làm gốc
           ref: develop
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Force Push to Target Branch
         run: |
-          echo "Đang thực hiện force push từ develop sang ${{ matrix.target_branch }}..."
-          # Cú pháp: git push <remote> <source_branch>:<target_branch> --force
-          git push origin origin/develop:${{ matrix.target_branch }} --force
+          echo "Đang thực hiện force push từ develop sang ${{ matrix.target_branch }} bằng PAT..."
+          # Đã checkout ref: develop nên local branch là develop. 
+          # Ta dùng lệnh push trực tiếp từ local branch lên remote branch đích.
+          git push origin develop:${{ matrix.target_branch }} --force
