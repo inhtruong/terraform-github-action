@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          ref: develop
 
       - name: Force Push to Target Branch
         run: |
