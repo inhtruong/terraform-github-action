@@ -40,9 +40,9 @@ jobs:
       - name: Final Report
         run: |
           echo "Môi trường thực thi: ${{ needs.prep-env.outputs.env_name }}"
-          echo "Kết quả từ Plan: ${{ needs.call-tf-plan.outputs.plan-result }}"
+          echo "Kết quả từ Plan: ${{ needs.call-tf-plan.outputs.outcome }}"
           
       - name: Execution Logic
-        if: ${{ needs.call-tf-plan.outputs.plan-result == 'OK' }}
+        if: ${{ needs.call-tf-plan.outputs.outcome == 'OK' }}
         run: |
           echo "Status là OK. Kích hoạt bước tiếp theo cho ${{ needs.prep-env.outputs.env_name }}..."
