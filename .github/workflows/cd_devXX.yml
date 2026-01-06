@@ -52,5 +52,5 @@ jobs:
       - name: Alert if NG
         if: ${{ needs.call-tf-plan.outputs.plan-outcome == 'NG' }}
         run: |
-          echo "Cảnh báo: Plan thất bại (NG). Dừng workflow tại đây."
+          echo "Cảnh báo: Plan thất bại (NGx). Dừng workflow tại đây."
           exit 1
