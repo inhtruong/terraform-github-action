@@ -32,4 +32,4 @@ jobs:
         run: |
           echo "Đang thực hiện force push từ develop sang ${{ matrix.target_branch }}..."
           # Cú pháp: git push <remote> <source_branch>:<target_branch> --force
-          git push origin develop:${{ matrix.target_branch }} --force
+          git push origin origin/develop:${{ matrix.target_branch }} --force
