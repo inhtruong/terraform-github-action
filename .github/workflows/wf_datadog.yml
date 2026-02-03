@@ -1,0 +1,74 @@
+name: Terraform Plan
+
+on:
+  workflow_dispatch:
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+
+    env:
+      DD_API_KEY: ${{ secrets.DD_API_KEY }}
+      ENVIRONMENT: prod
+      METRIC_NAME: terraform.plan.diff
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=tfplan
+          EXIT_CODE=$?
+          echo "exitcode=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0
+      - name: Send metric to Datadog (API v2)
+        if: always()
+        run: |
+          TIMESTAMP=$(date +%s)
+
+          if [ "${{ steps.plan.outputs.exitcode }}" == "2" ]; then
+            VALUE=1
+          elif [ "${{ steps.plan.outputs.exitcode }}" == "0" ]; then
+            VALUE=0
+          else
+            echo "Terraform plan failed"
+            exit 1
+          fi
+
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "https://api.datadoghq.com/api/v2/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${DD_API_KEY}" \
+            -d "{
+              \"series\": [
+                {
+                  \"metric\": \"terraform.plan.diff\",
+                  \"type\": \"gauge\",
+                  \"points\": [
+                    {
+                      \"timestamp\": ${TIMESTAMP},
+                      \"value\": ${VALUE}
+                    }
+                  ],
+                  \"tags\": [
+                    \"env:${ENVIRONMENT}\",
+                    \"repo:${{ github.repository }}\",
+                    \"branch:${{ github.ref_name }}\"
+                  ]
+                }
+              ]
+            }"
+
+
+      - name: Fail if Terraform Error
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1
