@@ -3,7 +3,11 @@ name: Terraform CI Demo
 on:
   workflow_dispatch:
     inputs:
-      TF_DEMO_FAIL:
+      FAIL_PLAN:
+        description: "Set true to simulate failure"
+        required: true
+        default: "false"
+      FAIL_APPLY:
         description: "Set true to simulate failure"
         required: true
         default: "false"
@@ -13,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TF_DEMO_FAIL: ${{ github.event.inputs.TF_DEMO_FAIL }}
+      FAIL_PLAN: ${{ github.event.inputs.FAIL_PLAN }}
+      FAIL_APPLY: ${{ github.event.inputs.FAIL_APPLY }}
 
     steps:
       - name: Checkout
@@ -31,7 +36,7 @@ jobs:
         run: |
           echo "Running terraform plan..."
 
-          if [ "$TF_DEMO_FAIL" = "true" ]; then
+          if [ "$FAIL_PLAN" = "true" ]; then
             echo "Simulating terraform plan failure"
             echo "plan_status=failure" >> $GITHUB_OUTPUT
             exit 1
@@ -49,7 +54,7 @@ jobs:
         run: |
           echo "Running terraform apply..."
 
-          if [ "$TF_DEMO_FAIL" = "true" ]; then
+          if [ "$FAIL_APPLY" = "true" ]; then
             echo "Simulating terraform apply failure"
             echo "apply_status=failure" >> $GITHUB_OUTPUT
             exit 1
