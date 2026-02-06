@@ -1,0 +1,171 @@
+name: 2 metrics (Fully Job-Based)
+
+on:
+  workflow_dispatch:
+    inputs:
+      FAIL_PLAN:
+        required: true
+        default: "false"
+      FAIL_APPLY:
+        required: true
+        default: "false"
+
+env:
+  DD_API_KEY: ${{ secrets.DD_API_KEY }}
+  DD_SITE: datadoghq.com
+  ENV_ID: dev
+
+# =========================
+# PLAN JOB
+# =========================
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      plan_failed: ${{ steps.set_output.outputs.plan_failed }}
+
+    steps:
+      - name: Terraform Plan (Demo)
+        id: plan_step
+        run: |
+          echo "Running terraform plan..."
+
+          if [ "${{ github.event.inputs.FAIL_PLAN }}" = "true" ]; then
+            exit 1
+          fi
+
+        continue-on-error: true
+
+      - name: Set Plan Output
+        id: set_output
+        run: |
+          if [ "${{ steps.plan_step.outcome }}" = "failure" ]; then
+            echo "plan_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "plan_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+# =========================
+# PLAN METRIC JOB
+# =========================
+  metric-plan:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.plan_failed == 'true'
+
+    steps:
+      - name: Push Plan Failure Metric
+        run: |
+          echo "Push plan failure metric"
+          TS=$(date +%s)
+
+          curl -X POST "https://api.${DD_SITE}/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "ci.terraform.plan.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:${ENV_ID}",
+                  "status:failure",
+                  "part:suspend"
+                ]
+              }
+            ]
+          }
+          EOF
+
+# =========================
+# APPLY JOB
+# =========================
+  apply:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.plan_failed == 'false'
+    outputs:
+      apply_failed: ${{ steps.set_output.outputs.apply_failed }}
+
+    steps:
+      - name: Terraform Apply (Demo)
+        id: apply_step
+        run: |
+          echo "Running terraform apply..."
+
+          if [ "${{ github.event.inputs.FAIL_APPLY }}" = "true" ]; then
+            exit 1
+          fi
+
+        continue-on-error: true
+
+      - name: Set Apply Output
+        id: set_output
+        run: |
+          if [ "${{ steps.apply_step.outcome }}" = "failure" ]; then
+            echo "apply_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "apply_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+# =========================
+# APPLY METRIC JOB
+# =========================
+  metric-apply:
+    runs-on: ubuntu-latest
+    needs: apply
+    if: needs.apply.outputs.apply_failed == 'true'
+
+    steps:
+      - name: Push Apply Failure Metric
+        run: |
+          echo "Push apply failure metric"
+          TS=$(date +%s)
+
+          curl -X POST "https://api.${DD_SITE}/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "ci.terraform.apply.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:${ENV_ID}",
+                  "status:failure",
+                  "part:suspend"
+                ]
+              }
+            ]
+          }
+          EOF
+
+# =========================
+# FINAL STATUS JOB
+# =========================
+  final-status:
+    runs-on: ubuntu-latest
+    needs: [plan, apply]
+    if: always()
+
+    steps:
+      - name: Fail Workflow If Needed
+        run: |
+          if [ "${{ needs.plan.outputs.plan_failed }}" = "true" ] || \
+             [ "${{ needs.apply.outputs.apply_failed }}" = "true" ]; then
+            exit 1
+          fi
