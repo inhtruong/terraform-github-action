@@ -1,4 +1,4 @@
-name: CD - Workflow Datadog Demo
+name: Terraform CI Demo
 
 on:
   workflow_dispatch:
@@ -25,30 +25,49 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      # -------- PLAN --------
       - name: Terraform Plan (Demo)
+        id: plan
         run: |
           echo "Running terraform plan..."
-          
+
           if [ "$TF_DEMO_FAIL" = "true" ]; then
             echo "Simulating terraform plan failure"
+            echo "plan_status=failure" >> $GITHUB_OUTPUT
             exit 1
           fi
-          
-          echo "Terraform plan success"
 
+          echo "Terraform plan success"
+          echo "plan_status=success" >> $GITHUB_OUTPUT
+
+        continue-on-error: true
+
+      # -------- APPLY --------
       - name: Terraform Apply (Demo)
-        if: success()
+        id: apply
+        if: steps.plan.outputs.plan_status == 'success'
         run: |
           echo "Running terraform apply..."
 
           if [ "$TF_DEMO_FAIL" = "true" ]; then
             echo "Simulating terraform apply failure"
+            echo "apply_status=failure" >> $GITHUB_OUTPUT
             exit 1
           fi
 
           echo "Terraform apply success"
+          echo "apply_status=success" >> $GITHUB_OUTPUT
 
-      - name: Notify Failure
-        if: failure()
+        continue-on-error: true
+
+      # -------- DEBUG OUTPUT --------
+      - name: Show Outputs
         run: |
-          echo "Workflow failed - you can push custom metric here"
+          echo "Plan status: ${{ steps.plan.outputs.plan_status }}"
+          echo "Apply status: ${{ steps.apply.outputs.apply_status }}"
+
+      # -------- FAILURE HANDLER --------
+      - name: Notify Failure
+        if: steps.plan.outputs.plan_status == 'failure' || steps.apply.outputs.apply_status == 'failure'
+        run: |
+          echo "Detected failure - push custom metric here"
