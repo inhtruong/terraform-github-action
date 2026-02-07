@@ -1,0 +1,172 @@
+name: 1 metric + tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      FAIL_APPLY:
+        required: true
+        default: "false"
+      FAIL_SYNTHETIC:
+        required: true
+        default: "false"
+
+env:
+  DD_API_KEY: ${{ secrets.DD_API_KEY }}
+  DD_SITE: datadoghq.com
+  ENV_ID: dev
+
+jobs:
+
+# =========================
+# PLAN JOB
+# =========================
+  apply:
+    runs-on: ubuntu-latest
+    outputs:
+      apply_failed: ${{ steps.set_output.outputs.apply_failed }}
+
+    steps:
+      - name: Terraform Apply (Demo)
+        id: apply_step
+        run: |
+          echo "Running terraform apply..."
+
+          if [ "${{ github.event.inputs.FAIL_APPLY }}" = "true" ]; then
+            exit 1
+          fi
+
+        continue-on-error: true
+
+      - name: Set Apply Output
+        id: set_output
+        run: |
+          if [ "${{ steps.apply_step.outcome }}" = "failure" ]; then
+            echo "apply_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "apply_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+# =========================
+# METRIC APPLY JOB
+# =========================
+  metric-apply:
+    runs-on: ubuntu-latest
+    needs: apply
+    if: needs.apply.outputs.apply_failed == 'true'
+
+    steps:
+      - name: Push Terraform Failure Metric (Apply)
+        run: |
+          TS=$(date +%s)
+
+          curl -X POST "https://api.${DD_SITE}/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "ci.terraform.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:dev",
+                  "stage:apply",
+                  "status:failure",
+                  "part:suspend"
+                ]
+              }
+            ]
+          }
+          EOF
+
+# =========================
+# SYNTHENIC TEST JOB
+# =========================
+  synthetic-test:
+    runs-on: ubuntu-latest
+    needs: apply
+    if: needs.apply.outputs.apply_failed == 'false'
+    outputs:
+      synthetic_test_failed: ${{ steps.set_output.outputs.synthetic_test_failed }}
+
+    steps:
+      - name: Synthenic test (Demo)
+        id: synthetic_test_step
+        run: |
+          echo "Running synthetic test..."
+
+          if [ "${{ github.event.inputs.FAIL_SYNTHETIC }}" = "true" ]; then
+            exit 1
+          fi
+
+        continue-on-error: true
+
+      - name: Set Synthenic test Output
+        id: set_output
+        run: |
+          if [ "${{ steps.synthetic_test_step.outcome }}" = "failure" ]; then
+            echo "synthetic_test_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "synthetic_test_failed=false" >> $GITHUB_OUTPUT
+          fi
+
+# =========================
+# METRIC SYNTHETIC TEST JOB
+# =========================
+  metric-synthetic-test:
+    runs-on: ubuntu-latest
+    needs: synthetic-test
+    if: needs.synthetic-test.outputs.synthetic_test_failed == 'true'
+
+    steps:
+      - name: Push Terraform Failure Metric (Synthetic Test)
+        run: |
+          TS=$(date +%s)
+
+          curl -X POST "https://api.${DD_SITE}/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "ci.terraform.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:dev",
+                  "stage:synthetic_test",
+                  "status:failure",
+                  "part:suspend"
+                ]
+              }
+            ]
+          }
+          EOF
+
+# =========================
+# FINAL STATUS JOB
+# =========================
+  final-status:
+    runs-on: ubuntu-latest
+    needs: [apply, synthetic-test]
+    if: always()
+
+    steps:
+      - name: Fail Workflow If Needed
+        run: |
+          if [ "${{ needs.apply.outputs.apply_failed }}" = "true" ] || \
+             [ "${{ needs.synthetic-test.outputs.synthetic_test_failed }}" = "true" ]; then
+            exit 1
+          fi
