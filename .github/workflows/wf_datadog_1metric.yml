@@ -66,7 +66,7 @@ jobs:
           {
             "series": [
               {
-                "metric": "ci.terraform.failure",
+                "metric": "test.execute.failure",
                 "type": 1,
                 "points": [
                   {
@@ -76,7 +76,7 @@ jobs:
                 ],
                 "tags": [
                   "env:dev",
-                  "stage:apply",
+                  "job:apply",
                   "status:failure",
                   "part:suspend"
                 ]
@@ -136,7 +136,7 @@ jobs:
           {
             "series": [
               {
-                "metric": "ci.terraform.failure",
+                "metric": "test.execute.failure",
                 "type": 1,
                 "points": [
                   {
@@ -146,7 +146,7 @@ jobs:
                 ],
                 "tags": [
                   "env:dev",
-                  "stage:synthetic_test",
+                  "job:synthetic_test",
                   "status:failure",
                   "part:suspend"
                 ]
