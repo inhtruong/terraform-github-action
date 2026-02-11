@@ -1,0 +1,106 @@
+name: Maintain Suspend Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      SET_ENV:
+        description: "Set environment (dev or prod)"
+        required: false
+        default: "dev"
+      FAIL_PREPARE:
+        description: "Force prepare failure"
+        required: false
+        default: "false"
+      FAIL_APPLY:
+        description: "Force apply failure"
+        required: false
+        default: "false"
+
+jobs:
+
+# =========================
+# PREPARE JOB
+# =========================
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      env_id: ${{ steps.setvars.outputs.env_id }}
+      runs_on: ${{ steps.setvars.outputs.runs_on }}
+
+    steps:
+      - name: Detect Environment
+        id: setvars
+        run: |
+          if [ "${{ github.event.inputs.FAIL_PREPARE }}" = "true" ]; then
+            echo "Force prepare failure"
+            exit 1
+          fi
+
+          if [[ "${{ github.event.inputs.SET_ENV }}" == "prod" ]]; then
+            ENV_ID="prod"
+          else
+            ENV_ID="dev"
+          fi
+
+          echo "env_id=${ENV_ID}" >> $GITHUB_OUTPUT
+          echo "runs_on=ubuntu-latest" >> $GITHUB_OUTPUT
+
+
+# =========================
+# APPLY JOB
+# =========================
+  apply:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: prepare
+
+    steps:
+      - name: Terraform Apply (Demo)
+        id: apply_step
+        run: |
+          echo "Running terraform apply..."
+
+          if [ "${{ github.event.inputs.FAIL_APPLY }}" = "true" ]; then
+            exit 1
+          fi
+          exit 0
+
+# =========================
+# METRIC APPLY JOB
+# =========================
+  notify_suspend_apply:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: [prepare, apply]
+    if: failure()
+
+    steps:
+      - name: Push Terraform Failure Metric (Apply)
+        run: |
+          TS=$(date +%s)
+
+          curl -X POST "https://api.datadoghq.com/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "test.execute.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:${ENV_ID}",
+                  "status:failure",
+                  "part:suspend"
+                ]
+              }
+            ]
+          }
+          EOF
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          ENV_ID: ${{ needs.prepare.outputs.env_id }}

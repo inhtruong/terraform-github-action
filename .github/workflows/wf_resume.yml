@@ -1,0 +1,159 @@
+name: Maintain Resume Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      SET_ENV:
+        description: "Set environment (dev or prod)"
+        required: false
+        default: "dev"
+      FAIL_PREPARE:
+        description: "Force prepare failure"
+        required: false
+        default: "false"
+      FAIL_SERVICE:
+        description: "Force service failure"
+        required: false
+        default: "false"
+      FAIL_CLOUDFRONT:
+        description: "Force cloudfront failure"
+        required: false
+        default: "false"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      env_id: ${{ steps.setvars.outputs.env_id }}
+      runs_on: ${{ steps.setvars.outputs.runs_on }}
+
+    steps:
+      - name: Detect Environment
+        id: setvars
+        run: |
+          if [ "${{ github.event.inputs.FAIL_PREPARE }}" = "true" ]; then
+            echo "Force prepare failure"
+            exit 1
+          fi
+
+          if [[ "${{ github.event.inputs.SET_ENV }}" == "prod" ]]; then
+            ENV_ID="prod"
+          else
+            ENV_ID="dev"
+          fi
+
+          echo "env_id=${ENV_ID}" >> $GITHUB_OUTPUT
+          echo "runs_on=ubuntu-latest" >> $GITHUB_OUTPUT
+
+  service_apply:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: prepare
+    if: needs.prepare.outputs.env_id == 'prod'
+
+    steps:
+      - name: Service Apply
+        run: |
+          echo "Running service apply..."
+
+          if [ "${{ github.event.inputs.FAIL_SERVICE }}" = "true" ]; then
+            exit 1
+          fi
+
+          exit 0
+
+  slack_notice_approval:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: [prepare,service_apply]
+
+    steps:
+      - name: Send Slack Approval Notice
+        run: |
+          echo "Sending Slack approval notice..."
+
+  approval:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: [prepare, service_apply, slack_notice_approval]
+
+    steps:
+      - name: Waiting for approval
+        run: echo "Approved"
+
+  cloudfront_apply:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: [prepare,approval]
+
+    steps:
+      - name: CloudFront Apply
+        run: |
+          echo "Running cloudfront apply..."
+
+          if [ "${{ github.event.inputs.FAIL_CLOUDFRONT }}" = "true" ]; then
+            exit 1
+          fi
+
+          exit 0
+
+  confirmed_resume:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs: [prepare,cloudfront_apply]
+
+    steps:
+      - name: Confirm Resume
+        run: |
+          echo "Confirming resume..."
+  
+  notify_resume_result:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs:
+      - prepare
+      - service_apply
+      - cloudfront_apply
+
+    if: ${{!cancelled() && failure()}}
+
+    steps:
+      - name: Push Terraform Failure Metric (Apply)
+        run: |
+          TS=$(date +%s)
+
+          curl -X POST "https://api.datadoghq.com/api/v2/series" \
+          -H "Content-Type: application/json" \
+          -H "DD-API-KEY: ${DD_API_KEY}" \
+          -d @- <<EOF
+          {
+            "series": [
+              {
+                "metric": "test.execute.failure",
+                "type": 1,
+                "points": [
+                  {
+                    "timestamp": ${TS},
+                    "value": 1
+                  }
+                ],
+                "tags": [
+                  "env:${ENV_ID}",
+                  "status:failure",
+                  "part:resume"
+                ]
+              }
+            ]
+          }
+          EOF
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          ENV_ID: ${{ needs.prepare.outputs.env_id }}
+
+  slack_message_creation:
+    runs-on: ${{ needs.prepare.outputs.runs_on }}
+    needs:
+      - prepare
+      - service_apply
+      - cloudfront_apply
+
+    if: always()
+
+    steps:
+      - name: Send Final Slack Message
+        run: |
+          echo "Sending final Slack summary..."
