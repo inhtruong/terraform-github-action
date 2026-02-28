@@ -52,7 +52,6 @@ jobs:
 
     steps:
       - name: Terraform Apply (Demo)
-        id: apply_step
         run: |
           echo "Running terraform apply..."
 
@@ -72,10 +71,9 @@ jobs:
     if: ${{ needs.apply.result == 'success' }}
 
     steps:
-      - name: Terraform Apply (Demo)
-        id: apply_step
+      - name: Synthetic Test (Demo)
         run: |
-          echo "Running terraform apply..."
+          echo "Running synthetic test..."
 
           if [ "${{ github.event.inputs.FAIL_SYNTHETIC }}" = "true" ]; then
             exit 1

@@ -7,16 +7,16 @@ on:
         description: "Set environment (dev or prod)"
         required: false
         default: "dev"
-      FAIL_PREPARE:
-        description: "Force prepare failure"
-        required: false
-        default: "false"
       FAIL_SERVICE:
         description: "Force service failure"
         required: false
         default: "false"
       FAIL_CLOUDFRONT:
         description: "Force cloudfront failure"
+        required: false
+        default: "false"
+      FAIL_SYNTHETIC:
+        description: "Force synthetic test failure"
         required: false
         default: "false"
 
@@ -31,10 +31,7 @@ jobs:
       - name: Detect Environment
         id: setvars
         run: |
-          if [ "${{ github.event.inputs.FAIL_PREPARE }}" = "true" ]; then
-            echo "Force prepare failure"
-            exit 1
-          fi
+          echo "Force prepare failure"
 
           if [[ "${{ github.event.inputs.SET_ENV }}" == "prod" ]]; then
             ENV_ID="prod"
@@ -93,14 +90,23 @@ jobs:
 
           exit 0
 
-  confirmed_resume:
+  synthetic_test:
     runs-on: ${{ needs.prepare.outputs.runs_on }}
-    needs: [prepare,cloudfront_apply]
+    needs: 
+      - prepare
+      - service_apply
+      - cloudfront_apply
+    if: ${{ needs.service_apply.result == 'success' && needs.cloudfront_apply.result == 'success' }}
 
     steps:
-      - name: Confirm Resume
+      - name: Synthetic Test (Demo)
         run: |
-          echo "Confirming resume..."
+          echo "Running synthetic test..."
+
+          if [ "${{ github.event.inputs.FAIL_SYNTHETIC }}" = "true" ]; then
+            exit 1
+          fi
+          exit 0
   
   notify_resume_result:
     runs-on: ${{ needs.prepare.outputs.runs_on }}
@@ -108,13 +114,18 @@ jobs:
       - prepare
       - service_apply
       - cloudfront_apply
-
-    if: ${{!cancelled() && failure()}}
+      - synthetic_test
+    if: ${{ always() && (needs.service_apply.result == 'failure' || needs.cloudfront_apply.result == 'failure' || needs.synthetic_test.result == 'failure') }}
 
     steps:
-      - name: Push Terraform Failure Metric (Apply)
+      - name: Push Terraform Failure Metric
         run: |
           TS=$(date +%s)
+
+          JOB_FAILURE="apply"
+          if [ "${SYNTHTIC_TEST_RESULT}" == "failure" ]; then
+            JOB_FAILURE="synthetic-test"
+          fi
 
           curl -X POST "https://api.datadoghq.com/api/v2/series" \
           -H "Content-Type: application/json" \
@@ -134,7 +145,8 @@ jobs:
                 "tags": [
                   "env:${ENV_ID}",
                   "status:failure",
-                  "part:resume"
+                  "part:suspend",
+                  "job:${JOB_FAILURE}"
                 ]
               }
             ]
@@ -143,6 +155,7 @@ jobs:
         env:
           DD_API_KEY: ${{ secrets.DD_API_KEY }}
           ENV_ID: ${{ needs.prepare.outputs.env_id }}
+          SYNTHTIC_TEST_RESULT: ${{ needs.synthetic_test.result }}
 
   slack_message_creation:
     runs-on: ${{ needs.prepare.outputs.runs_on }}
