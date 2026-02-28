@@ -85,13 +85,13 @@ jobs:
 # =========================
 # METRIC APPLY JOB
 # =========================
-  notify_suspend:
+  notify-suspend:
     runs-on: ${{ needs.prepare.outputs.runs_on }}
     needs: 
       - prepare
       - apply
       - synthetic-test
-    if: ${{ needs.apply.result == 'failure' || needs.synthetic-test.result == 'failure' }}
+    if: failure()
 
     steps:
       - name: Push Terraform Failure Metric
