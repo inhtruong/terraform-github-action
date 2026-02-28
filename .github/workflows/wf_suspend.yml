@@ -91,7 +91,7 @@ jobs:
       - prepare
       - apply
       - synthetic-test
-    if: failure()
+    if: ${{ always() && (needs.apply.result == 'failure' || needs.synthetic-test.result == 'failure') }}
 
     steps:
       - name: Push Terraform Failure Metric
