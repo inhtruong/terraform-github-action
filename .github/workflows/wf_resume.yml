@@ -145,7 +145,7 @@ jobs:
                 "tags": [
                   "env:${ENV_ID}",
                   "status:failure",
-                  "part:suspend",
+                  "part:resume",
                   "job:${JOB_FAILURE}"
                 ]
               }
